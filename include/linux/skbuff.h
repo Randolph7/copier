@@ -975,6 +975,8 @@ struct sk_buff {
 	unsigned int		truesize;
 	refcount_t		users;
 
+	volatile uint8_t* descriptor;
+
 #ifdef CONFIG_SKB_EXTENSIONS
 	/* only useable after checking ->active_extensions != 0 */
 	struct skb_ext		*extensions;
@@ -2923,6 +2925,9 @@ static inline int skb_orphan_frags(struct sk_buff *skb, gfp_t gfp_mask)
 static inline int skb_orphan_frags_rx(struct sk_buff *skb, gfp_t gfp_mask)
 {
 	if (likely(!skb_zcopy(skb)))
+		return 0;
+	if (!skb_zcopy_is_nouarg(skb) &&
+	    skb_uarg(skb)->callback == msg_zerocopy_callback)
 		return 0;
 	return skb_copy_ubufs(skb, gfp_mask);
 }
