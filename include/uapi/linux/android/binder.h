@@ -249,7 +249,7 @@ struct binder_frozen_status_info {
 #define BINDER_FREEZE			_IOW('b', 14, struct binder_freeze_info)
 #define BINDER_GET_FROZEN_INFO		_IOWR('b', 15, struct binder_frozen_status_info)
 #define BINDER_ENABLE_ONEWAY_SPAM_DETECTION	_IOW('b', 16, __u32)
-
+#define BINDER_WRITE_READ_COPIER		_IOWR('b', 17, struct binder_write_read)
 /*
  * NOTE: Two special error codes you should check for when calling
  * in to the driver are:

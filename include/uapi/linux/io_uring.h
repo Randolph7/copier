@@ -60,7 +60,10 @@ struct io_uring_sqe {
 		__s32	splice_fd_in;
 		__u32	file_index;
 	};
-	__u64	__pad2[2];
+	struct {
+		__u64	addr3;
+		__u64	__pad2[1];
+	};
 };
 
 enum {
@@ -128,6 +131,8 @@ enum {
 	IORING_OP_MADVISE,
 	IORING_OP_SEND,
 	IORING_OP_RECV,
+	IORING_OP_RECV_COPIER,
+	IORING_OP_SEND_COPIER,
 	IORING_OP_OPENAT2,
 	IORING_OP_EPOLL_CTL,
 	IORING_OP_SPLICE,
