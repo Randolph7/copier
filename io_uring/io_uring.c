@@ -584,6 +584,23 @@ struct io_sr_msg {
 	void __user			*msg_control;
 };
 
+struct io_sr_msg_copier {
+	struct file			*file;
+	union {
+		struct compat_msghdr __user	*umsg_compat;
+		struct user_msghdr __user	*umsg;
+		void __user			*buf;
+	};
+	int				msg_flags;
+	int				bgid;
+	size_t				len;
+	size_t				done_io;
+	struct io_buffer		*kbuf;
+	void __user			*msg_control;
+	void __user 		*buf_base;
+	void __user			*descriptor_buffer;
+};
+
 struct io_open {
 	struct file			*file;
 	int				dfd;
@@ -841,6 +858,7 @@ struct io_kiocb {
 		struct io_timeout_rem	timeout_rem;
 		struct io_connect	connect;
 		struct io_sr_msg	sr_msg;
+		struct io_sr_msg_copier	sr_msg_copier;
 		struct io_open		open;
 		struct io_close		close;
 		struct io_rsrc_update	rsrc_update;
@@ -1043,7 +1061,18 @@ static const struct io_op_def io_op_defs[] = {
 		.unbound_nonreg_file	= 1,
 		.pollout		= 1,
 	},
+	[IORING_OP_SEND_COPIER] = {
+		.needs_file		= 1,
+		.unbound_nonreg_file	= 1,
+		.pollout		= 1,
+	},
 	[IORING_OP_RECV] = {
+		.needs_file		= 1,
+		.unbound_nonreg_file	= 1,
+		.pollin			= 1,
+		.buffer_select		= 1,
+	},
+	[IORING_OP_RECV_COPIER] = {
 		.needs_file		= 1,
 		.unbound_nonreg_file	= 1,
 		.pollin			= 1,
@@ -5044,6 +5073,60 @@ static int io_send(struct io_kiocb *req, unsigned int issue_flags)
 	return 0;
 }
 
+static int io_send_copier(struct io_kiocb *req, unsigned int issue_flags)
+{
+	// printk("io_send_copier\n");
+	struct io_sr_msg *sr = &req->sr_msg;
+	struct msghdr msg;
+	struct iovec iov;
+	struct socket *sock;
+	unsigned flags;
+	int min_ret = 0;
+	int ret;
+
+	sock = sock_from_file(req->file);
+	if (unlikely(!sock))
+		return -ENOTSOCK;
+
+	ret = import_single_range(WRITE, sr->buf, sr->len, &iov, &msg.msg_iter);
+	if (unlikely(ret))
+		return ret;
+
+	msg.msg_name = NULL;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_namelen = 0;
+
+	flags = req->sr_msg.msg_flags;
+	if (issue_flags & IO_URING_F_NONBLOCK)
+		flags |= MSG_DONTWAIT;
+	if (flags & MSG_WAITALL)
+		min_ret = iov_iter_count(&msg.msg_iter);
+
+	msg.msg_flags = flags;
+	ret = sock_sendmsg_copyer(sock, &msg);
+	if (ret < min_ret) {
+		if (ret == -EAGAIN && (issue_flags & IO_URING_F_NONBLOCK))
+			return -EAGAIN;
+		if (ret == -ERESTARTSYS)
+			ret = -EINTR;
+		if (ret > 0 && io_net_retry(sock, flags)) {
+			sr->len -= ret;
+			sr->buf += ret;
+			sr->done_io += ret;
+			req->flags |= REQ_F_PARTIAL_IO;
+			return -EAGAIN;
+		}
+		req_set_fail(req);
+	}
+	if (ret >= 0)
+		ret += sr->done_io;
+	else if (sr->done_io)
+		ret = sr->done_io;
+	__io_req_complete(req, issue_flags, ret, 0);
+	return 0;
+}
+
 static int __io_recvmsg_copy_hdr(struct io_kiocb *req,
 				 struct io_async_msghdr *iomsg)
 {
@@ -5159,6 +5242,36 @@ static int io_recvmsg_prep_async(struct io_kiocb *req)
 	if (!ret)
 		req->flags |= REQ_F_NEED_CLEANUP;
 	return ret;
+}
+
+static int io_recvmsg_prep_copier(struct io_kiocb *req, const struct io_uring_sqe *sqe)
+{
+	// printk("io_recvmsg_prep_copier\n");
+	struct io_sr_msg_copier *sr = &req->sr_msg_copier;
+
+	if (unlikely(req->ctx->flags & IORING_SETUP_IOPOLL))
+		return -EINVAL;
+	// if (unlikely(sqe->addr2 || sqe->file_index))
+	// 	return -EINVAL;
+	// if (unlikely(sqe->addr2 || sqe->file_index || sqe->ioprio))
+	// 	return -EINVAL;
+
+	sr->umsg = u64_to_user_ptr(READ_ONCE(sqe->addr));
+	sr->len = READ_ONCE(sqe->len);
+	sr->bgid = READ_ONCE(sqe->buf_group);
+	sr->msg_flags = READ_ONCE(sqe->msg_flags);
+	sr->descriptor_buffer = (void __user*)READ_ONCE(sqe->addr3);
+	sr->buf_base = (void __user*)READ_ONCE(sqe->addr2);
+
+	if (sr->msg_flags & MSG_DONTWAIT)
+		req->flags |= REQ_F_NOWAIT;
+
+#ifdef CONFIG_COMPAT
+	if (req->ctx->compat)
+		sr->msg_flags |= MSG_CMSG_COMPAT;
+#endif
+	sr->done_io = 0;
+	return 0;
 }
 
 static int io_recvmsg_prep(struct io_kiocb *req, const struct io_uring_sqe *sqe)
@@ -5299,6 +5412,77 @@ static int io_recv(struct io_kiocb *req, unsigned int issue_flags)
 		min_ret = iov_iter_count(&msg.msg_iter);
 
 	ret = sock_recvmsg(sock, &msg, flags);
+	if (ret < min_ret) {
+		if (ret == -EAGAIN && force_nonblock)
+			return -EAGAIN;
+		if (ret == -ERESTARTSYS)
+			ret = -EINTR;
+		if (ret > 0 && io_net_retry(sock, flags)) {
+			sr->len -= ret;
+			sr->buf += ret;
+			sr->done_io += ret;
+			req->flags |= REQ_F_PARTIAL_IO;
+			return -EAGAIN;
+		}
+		req_set_fail(req);
+	} else if ((flags & MSG_WAITALL) && (msg.msg_flags & (MSG_TRUNC | MSG_CTRUNC))) {
+out_free:
+		req_set_fail(req);
+	}
+	if (req->flags & REQ_F_BUFFER_SELECTED)
+		cflags = io_put_recv_kbuf(req);
+	if (ret >= 0)
+		ret += sr->done_io;
+	else if (sr->done_io)
+		ret = sr->done_io;
+	__io_req_complete(req, issue_flags, ret, cflags);
+	return 0;
+}
+
+static int io_recv_copier(struct io_kiocb *req, unsigned int issue_flags)
+{
+	// printk("io_recv_copier\n");
+	struct io_buffer *kbuf;
+	struct io_sr_msg_copier *sr = &req->sr_msg_copier;
+	struct msghdr msg;
+	void __user *buf = sr->buf;
+	struct socket *sock;
+	struct iovec iov;
+	unsigned flags;
+	int min_ret = 0;
+	int ret, cflags = 0;
+	bool force_nonblock = issue_flags & IO_URING_F_NONBLOCK;
+
+	sock = sock_from_file(req->file);
+	if (unlikely(!sock))
+		return -ENOTSOCK;
+
+	if (req->flags & REQ_F_BUFFER_SELECT) {
+		kbuf = io_recv_buffer_select(req, !force_nonblock);
+		if (IS_ERR(kbuf))
+			return PTR_ERR(kbuf);
+		buf = u64_to_user_ptr(kbuf->addr);
+	}
+
+	ret = import_single_range(READ, buf, sr->len, &iov, &msg.msg_iter);
+	if (unlikely(ret))
+		goto out_free;
+
+	msg.msg_name = NULL;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_namelen = 0;
+	msg.msg_iocb = NULL;
+	msg.msg_flags = 0;
+
+	flags = req->sr_msg.msg_flags;
+	if (force_nonblock)
+		flags |= MSG_DONTWAIT;
+	if (flags & MSG_WAITALL)
+		min_ret = iov_iter_count(&msg.msg_iter);
+
+	ret = sock_recvmsg_copyer(sock, &msg, flags, sr->descriptor_buffer, sr->buf_base);
+	// printk("sock_recvmsg_copyer descriptor_buffer=%llu, buf_base=%llu, ret = %d\n", (unsigned long)sr->descriptor_buffer, (unsigned long)sr->buf_base, ret);
 	if (ret < min_ret) {
 		if (ret == -EAGAIN && force_nonblock)
 			return -EAGAIN;
@@ -6646,10 +6830,13 @@ static int io_req_prep(struct io_kiocb *req, const struct io_uring_sqe *sqe)
 		return io_sfr_prep(req, sqe);
 	case IORING_OP_SENDMSG:
 	case IORING_OP_SEND:
+	case IORING_OP_SEND_COPIER:
 		return io_sendmsg_prep(req, sqe);
 	case IORING_OP_RECVMSG:
 	case IORING_OP_RECV:
 		return io_recvmsg_prep(req, sqe);
+	case IORING_OP_RECV_COPIER:
+		return io_recvmsg_prep_copier(req, sqe);
 	case IORING_OP_CONNECT:
 		return io_connect_prep(req, sqe);
 	case IORING_OP_TIMEOUT:
@@ -6829,6 +7016,7 @@ static void io_clean_op(struct io_kiocb *req)
 			break;
 		case IORING_OP_RECVMSG:
 		case IORING_OP_RECV:
+		case IORING_OP_RECV_COPIER:
 			kfree(req->sr_msg.kbuf);
 			break;
 		}
@@ -6936,11 +7124,17 @@ static int io_issue_sqe(struct io_kiocb *req, unsigned int issue_flags)
 	case IORING_OP_SEND:
 		ret = io_send(req, issue_flags);
 		break;
+	case IORING_OP_SEND_COPIER:
+		ret = io_send_copier(req, issue_flags);
+		break;
 	case IORING_OP_RECVMSG:
 		ret = io_recvmsg(req, issue_flags);
 		break;
 	case IORING_OP_RECV:
 		ret = io_recv(req, issue_flags);
+		break;
+	case IORING_OP_RECV_COPIER:
+		ret = io_recv_copier(req, issue_flags);
 		break;
 	case IORING_OP_TIMEOUT:
 		ret = io_timeout(req, issue_flags);

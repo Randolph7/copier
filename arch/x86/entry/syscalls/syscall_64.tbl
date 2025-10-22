@@ -415,3 +415,20 @@
 547	x32	pwritev2		compat_sys_pwritev64v2
 # This is the end of the legacy x32 range.  Numbers 548 and above are
 # not special and are not to be used for x32-specific syscalls.
+
+# added for copyer
+600     common  recvfrom_copyer     sys_recvfrom_copyer
+602     common  create_cp_thread    sys_create_cp_thread
+603     common  del_cp_thread       sys_del_cp_thread
+604     common  socket_copyer       sys_socket_copyer
+
+606	    common	sendto_copyer		sys_sendto_copyer
+
+607     common  create_copier_service   sys_create_copier_service
+608     common  create_cp_queue   sys_create_cp_queue
+609     common  del_cp_queue    sys_del_cp_queue
+
+611     common  del_copier_service     sys_del_copier_service
+614     common  recvfrom_lazy                   sys_recvfrom_lazy
+615     common  recvfrom_lazy_init              sys_recvfrom_lazy_init
+616     common  sendto_copyer_lazy              sys_sendto_copyer_lazy

@@ -85,6 +85,11 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
 	skb->protocol = eth_type_trans(skb, dev);
 
 	len = skb->len;
+	if (skb->descriptor && unlikely(*(skb->descriptor) != 1)) {
+		while (*(skb->descriptor) != 1)
+			;
+	}
+	skb->descriptor = NULL;
 	if (likely(netif_rx(skb) == NET_RX_SUCCESS))
 		dev_lstats_add(dev, len);
 
@@ -197,7 +202,7 @@ static void gen_lo_setup(struct net_device *dev,
  */
 static void loopback_setup(struct net_device *dev)
 {
-	gen_lo_setup(dev, (64 * 1024), &loopback_ethtool_ops, &eth_header_ops,
+	gen_lo_setup(dev, 9000, &loopback_ethtool_ops, &eth_header_ops,
 		     &loopback_ops, loopback_dev_free);
 }
 

@@ -7,8 +7,11 @@
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
+#include <linux/delay.h>
+#include <linux/kthread.h>
+#include <copyer/copyer.h>
 #include <linux/list.h>
+#include <linux/file.h>
 #include <linux/sched/mm.h>
 #include <linux/module.h>
 #include <linux/rtmutex.h>
@@ -38,8 +41,7 @@ enum {
 };
 static uint32_t binder_alloc_debug_mask = BINDER_DEBUG_USER_ERROR;
 
-module_param_named(debug_mask, binder_alloc_debug_mask,
-		   uint, 0644);
+module_param_named(alloc_debug_mask, binder_alloc_debug_mask, uint, 0644);
 
 #define binder_alloc_debug(mask, x...) \
 	do { \
@@ -1091,12 +1093,6 @@ int binder_alloc_shrinker_init(void)
 	return ret;
 }
 
-void binder_alloc_shrinker_exit(void)
-{
-	unregister_shrinker(&binder_shrinker);
-	list_lru_destroy(&binder_alloc_lru);
-}
-
 /**
  * check_buffer() - verify that buffer/offset is safe to access
  * @alloc: binder_alloc for this proc
@@ -1215,7 +1211,6 @@ binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc,
 {
 	if (!check_buffer(alloc, buffer, buffer_offset, bytes))
 		return bytes;
-
 	while (bytes) {
 		unsigned long size;
 		unsigned long ret;
@@ -1237,6 +1232,80 @@ binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc,
 	}
 	return 0;
 }
+
+
+
+/**
+ * binder_alloc_copy_user_to_buffer_copier() - copy async
+ * @alloc: binder_alloc for this proc
+ * @buffer: binder buffer to be accessed
+ * @buffer_offset: offset into @buffer data
+ * @from: userspace pointer to source buffer
+ * @bytes: bytes to copy
+ *
+ * Copy bytes from source userspace to target buffer.
+ *
+ * no  Return:
+ */
+unsigned long
+binder_alloc_copy_user_to_buffer_copier(int binder_fd,struct binder_alloc *alloc,
+				 struct binder_buffer *buffer,
+				 __u64 buffer_offset,
+				 const void __user *from,
+				 size_t bytes)
+{
+	struct binder_queue *q;
+	struct file *file = fget(binder_fd);
+	volatile int write_index;
+	if (unlikely(!file)) {
+		printk("[copyer] NO SUCH FILE");
+		return -EFAULT;
+	}
+	q = ((struct copyer_ctx *)(file->private_data))->b_queue;
+	unsigned long size;
+	struct binder_entry* entry;
+	struct page *page;
+	pgoff_t pgoff;
+	page = binder_alloc_get_page(alloc, buffer,buffer_offset, &pgoff);
+	size=bytes>(PAGE_SIZE - pgoff)?(PAGE_SIZE - pgoff):bytes;
+	write_index = q->binder_write_index;
+	entry = &q->entries[write_index];
+	entry->from = (void *)from;
+	entry->page = page;
+	entry->pgoff = pgoff;
+	entry->size=size;
+	entry->type = CP_START;
+	bytes -= size;
+	if(unlikely(bytes<=0)){
+		entry->type=CP_ONCE;
+		q->binder_write_index = (write_index + 1) % DEFUALT_CP_BINDER_ENTRY_NUM;
+		return 0;
+	}
+	q->binder_write_index = (write_index + 1) % DEFUALT_CP_BINDER_ENTRY_NUM;
+	from += size;
+	buffer_offset += size;
+	while (bytes) {
+		page = binder_alloc_get_page(alloc, buffer,buffer_offset, &pgoff);
+		size=bytes>(PAGE_SIZE - pgoff)?(PAGE_SIZE - pgoff):bytes;
+		write_index = q->binder_write_index;
+		entry = &q->entries[write_index];
+		entry->from = (void *)from;
+		entry->page = page;
+		entry->pgoff = pgoff;
+		entry->size=size;
+		entry->type = CP_MID;
+		bytes -= size;
+		if(unlikely(bytes<=0))
+			entry->type=CP_END;
+		q->binder_write_index = (write_index + 1) % DEFUALT_CP_BINDER_ENTRY_NUM;
+		from += size;
+		buffer_offset += size;
+	}
+	return 0;
+}
+
+
+
 
 static int binder_alloc_do_buffer_copy(struct binder_alloc *alloc,
 				       bool to_buffer,

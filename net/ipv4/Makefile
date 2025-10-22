@@ -14,7 +14,9 @@ obj-y     := route.o inetpeer.o protocol.o \
 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
 	     fib_frontend.o fib_semantics.o fib_trie.o fib_notifier.o \
 	     inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o \
-	     metrics.o netlink.o nexthop.o udp_tunnel_stub.o
+	     metrics.o netlink.o nexthop.o udp_tunnel_stub.o \
+		 cp_recv.o cp_send.o copier_service.o cp_micro.o \
+		 cp_erms_memcpy.o memcpy-avx-unaligned.o cp_recv_lazy.o copier_thread.o
 
 obj-$(CONFIG_BPFILTER) += bpfilter/
 
