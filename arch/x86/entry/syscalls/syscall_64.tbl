@@ -415,3 +415,36 @@
 547	x32	pwritev2		compat_sys_pwritev64v2
 # This is the end of the legacy x32 range.  Numbers 548 and above are
 # not special and are not to be used for x32-specific syscalls.
+
+# added for copyer
+600     common  recvfrom_copyer     sys_recvfrom_copyer
+601     common  sync_cp_copyer      sys_sync_cp_copyer
+602     common  create_cp_thread    sys_create_cp_thread
+603     common  del_cp_thread       sys_del_cp_thread
+604     common  socket_copyer       sys_socket_copyer
+605     common  bind_cp_thread      sys_bind_cp_thread
+
+606	    common	sendto_copyer		sys_sendto_copyer
+
+607     common  create_cp_thread_whole_system   sys_create_cp_thread_whole_system
+608     common  create_cp_queue_whole_system    sys_create_cp_queue_whole_system
+609     common  release_cp_queue_whole_system   sys_release_cp_queue_whole_system
+610     common  bind_cp_thread_whole_system     sys_bind_cp_thread_whole_system
+611     common  del_cp_thread_whole_system      sys_del_cp_thread_whole_system
+612     common  cow_copy_thread_create          sys_cow_copy_thread_create
+613     common  cow_copy_thread_delete          sys_cow_copy_thread_delete
+614     common  recvfrom_lazy                   sys_recvfrom_lazy
+615     common  recvfrom_lazy_init              sys_recvfrom_lazy_init
+616     common  sendto_copyer_lazy              sys_sendto_copyer_lazy
+
+700     common  test_cp_to_user     sys_test_cp_to_user
+701     common  clear_memlog        sys_clear_memlog
+702     common  show_memlog         sys_show_memlog
+703     common  micro_create        sys_micro_create
+704     common  micro_report        sys_micro_report
+705     common  test_avx_dma        sys_test_avx_dma
+706     common  test_empty_syscall  sys_test_empty_syscall
+707     common  test_addr_transfer  sys_test_addr_transfer
+708     common  micro_fairness_create       sys_micro_fairness_create
+709     common  micro_micro_fairness_report       sys_micro_fairness_report
+710     common  micro_create2        sys_micro_create2

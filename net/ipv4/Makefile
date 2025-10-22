@@ -14,8 +14,10 @@ obj-y     := route.o inetpeer.o protocol.o \
 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
 	     fib_frontend.o fib_semantics.o fib_trie.o fib_notifier.o \
 	     inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o \
-	     metrics.o netlink.o nexthop.o udp_tunnel_stub.o
-
+	     metrics.o netlink.o nexthop.o udp_tunnel_stub.o \
+		 cp_recv.o sync_copy.o cp_thread.o test_copyout.o cp_memlog.o cp_send.o cp_send_thread.o cp_thread_new.o cp_recv_thread_new.o cp_micro.o cp_thread_micro_test.o cp_thread_micro_test2.o\
+		 cp_erms_memcpy.o memcpy-avx-unaligned.o cp_cow_thread.o cp_recv_lazy.o cp_fairness_micro.o
+# cp_queue_op.o cp_recv_thread.o
 obj-$(CONFIG_BPFILTER) += bpfilter/
 
 obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
