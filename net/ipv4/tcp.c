@@ -281,12 +281,6 @@
 #include <asm/ioctls.h>
 #include <net/busy_poll.h>
 
-/* Track pending CMSGs. */
-enum {
-	TCP_CMSG_INQ = 1,
-	TCP_CMSG_TS = 2
-};
-
 DEFINE_PER_CPU(unsigned int, tcp_orphan_count);
 EXPORT_PER_CPU_SYMBOL_GPL(tcp_orphan_count);
 
@@ -467,7 +461,7 @@ void tcp_init_sock(struct sock *sk)
 }
 EXPORT_SYMBOL(tcp_init_sock);
 
-static void tcp_tx_timestamp(struct sock *sk, u16 tsflags)
+void tcp_tx_timestamp(struct sock *sk, u16 tsflags)
 {
 	struct sk_buff *skb = tcp_write_queue_tail(sk);
 
@@ -653,7 +647,7 @@ void tcp_mark_push(struct tcp_sock *tp, struct sk_buff *skb)
 	tp->pushed_seq = tp->write_seq;
 }
 
-static inline bool forced_push(const struct tcp_sock *tp)
+inline bool forced_push(const struct tcp_sock *tp)
 {
 	return after(tp->write_seq, tp->pushed_seq + (tp->max_window >> 1));
 }
@@ -677,7 +671,7 @@ void tcp_skb_entail(struct sock *sk, struct sk_buff *skb)
 	tcp_slow_start_after_idle_check(sk);
 }
 
-static inline void tcp_mark_urg(struct tcp_sock *tp, int flags)
+inline void tcp_mark_urg(struct tcp_sock *tp, int flags)
 {
 	if (flags & MSG_OOB)
 		tp->snd_up = tp->write_seq;
@@ -693,7 +687,7 @@ static inline void tcp_mark_urg(struct tcp_sock *tp, int flags)
  * autocorking if we only have an ACK in Qdisc/NIC queues,
  * or if TX completion was delayed after we processed ACK packet.
  */
-static bool tcp_should_autocork(struct sock *sk, struct sk_buff *skb,
+bool tcp_should_autocork(struct sock *sk, struct sk_buff *skb,
 				int size_goal)
 {
 	return skb->len < size_goal &&
@@ -918,23 +912,24 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
 	struct tcp_sock *tp = tcp_sk(sk);
 	u32 new_size_goal, size_goal;
 
-	if (!large_allowed)
-		return mss_now;
+	return mss_now;
+	// if (!large_allowed)
+	// 	return mss_now;
 
-	/* Note : tcp_tso_autosize() will eventually split this later */
-	new_size_goal = sk->sk_gso_max_size - 1 - MAX_TCP_HEADER;
-	new_size_goal = tcp_bound_to_half_wnd(tp, new_size_goal);
+	// /* Note : tcp_tso_autosize() will eventually split this later */
+	// new_size_goal = sk->sk_gso_max_size - 1 - MAX_TCP_HEADER;
+	// new_size_goal = tcp_bound_to_half_wnd(tp, new_size_goal);
 
-	/* We try hard to avoid divides here */
-	size_goal = tp->gso_segs * mss_now;
-	if (unlikely(new_size_goal < size_goal ||
-		     new_size_goal >= size_goal + mss_now)) {
-		tp->gso_segs = min_t(u16, new_size_goal / mss_now,
-				     sk->sk_gso_max_segs);
-		size_goal = tp->gso_segs * mss_now;
-	}
+	// /* We try hard to avoid divides here */
+	// size_goal = tp->gso_segs * mss_now;
+	// if (unlikely(new_size_goal < size_goal ||
+	// 	     new_size_goal >= size_goal + mss_now)) {
+	// 	tp->gso_segs = min_t(u16, new_size_goal / mss_now,
+	// 			     sk->sk_gso_max_segs);
+	// 	size_goal = tp->gso_segs * mss_now;
+	// }
 
-	return max(size_goal, mss_now);
+	// return max(size_goal, mss_now);
 }
 
 int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
@@ -1471,7 +1466,7 @@ EXPORT_SYMBOL(tcp_sendmsg);
  *	this, no blocking and very strange errors 8)
  */
 
-static int tcp_recv_urg(struct sock *sk, struct msghdr *msg, int len, int flags)
+int tcp_recv_urg(struct sock *sk, struct msghdr *msg, int len, int flags)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
@@ -1515,7 +1510,7 @@ static int tcp_recv_urg(struct sock *sk, struct msghdr *msg, int len, int flags)
 	return -EAGAIN;
 }
 
-static int tcp_peek_sndq(struct sock *sk, struct msghdr *msg, int len)
+int tcp_peek_sndq(struct sock *sk, struct msghdr *msg, int len)
 {
 	struct sk_buff *skb;
 	int copied = 0, err = 0;
@@ -2269,7 +2264,7 @@ void tcp_recv_timestamp(struct msghdr *msg, const struct sock *sk,
 	}
 }
 
-static int tcp_inq_hint(struct sock *sk)
+int tcp_inq_hint(struct sock *sk)
 {
 	const struct tcp_sock *tp = tcp_sk(sk);
 	u32 copied_seq = READ_ONCE(tp->copied_seq);

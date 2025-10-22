@@ -148,7 +148,7 @@ __out:								\
 #define iterate_and_advance(i, n, base, len, off, I, K) \
 	__iterate_and_advance(i, n, base, len, off, I, ((void)(K),0))
 
-static int copyout(void __user *to, const void *from, size_t n)
+int copyout(void __user *to, const void *from, size_t n)
 {
 	if (should_fail_usercopy())
 		return n;
@@ -159,7 +159,12 @@ static int copyout(void __user *to, const void *from, size_t n)
 	return n;
 }
 
-static int copyin(void *to, const void __user *from, size_t n)
+int copyout_copier(void __user *to, const void *from, size_t n)
+{
+	return raw_copy_to_user(to, from, n);
+}
+
+int copyin(void *to, const void __user *from, size_t n)
 {
 	if (should_fail_usercopy())
 		return n;

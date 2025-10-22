@@ -129,7 +129,7 @@ int ip_local_out(struct net *net, struct sock *sk, struct sk_buff *skb)
 }
 EXPORT_SYMBOL_GPL(ip_local_out);
 
-static inline int ip_select_ttl(struct inet_sock *inet, struct dst_entry *dst)
+inline int ip_select_ttl(struct inet_sock *inet, struct dst_entry *dst)
 {
 	int ttl = inet->uc_ttl;
 
@@ -440,7 +440,7 @@ EXPORT_SYMBOL(ip_output);
  *   iph->saddr = fl4->saddr;
  *   iph->daddr = fl4->daddr;
  */
-static void ip_copy_addrs(struct iphdr *iph, const struct flowi4 *fl4)
+void ip_copy_addrs(struct iphdr *iph, const struct flowi4 *fl4)
 {
 	BUILD_BUG_ON(offsetof(typeof(*fl4), daddr) !=
 		     offsetof(typeof(*fl4), saddr) + sizeof(fl4->saddr));
@@ -657,7 +657,7 @@ void ip_frag_init(struct sk_buff *skb, unsigned int hlen,
 }
 EXPORT_SYMBOL(ip_frag_init);
 
-static void ip_frag_ipcb(struct sk_buff *from, struct sk_buff *to,
+void ip_frag_ipcb(struct sk_buff *from, struct sk_buff *to,
 			 bool first_frag)
 {
 	/* Copy the flags to each fragment. */

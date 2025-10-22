@@ -6,6 +6,7 @@
 #ifndef _LINUX_BINDER_ALLOC_H
 #define _LINUX_BINDER_ALLOC_H
 
+#include <linux/kconfig.h>
 #include <linux/rbtree.h>
 #include <linux/list.h>
 #include <linux/mm.h>
@@ -115,7 +116,7 @@ struct binder_alloc {
 	bool oneway_spam_detected;
 };
 
-#ifdef CONFIG_ANDROID_BINDER_IPC_SELFTEST
+#if IS_ENABLED(CONFIG_ANDROID_BINDER_IPC_SELFTEST)
 void binder_selftest_alloc(struct binder_alloc *alloc);
 #else
 static inline void binder_selftest_alloc(struct binder_alloc *alloc) {}
@@ -131,7 +132,6 @@ extern struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc,
 						  int pid);
 extern void binder_alloc_init(struct binder_alloc *alloc);
 extern int binder_alloc_shrinker_init(void);
-extern void binder_alloc_shrinker_exit(void);
 extern void binder_alloc_vma_close(struct binder_alloc *alloc);
 extern struct binder_buffer *
 binder_alloc_prepare_to_free(struct binder_alloc *alloc,
@@ -166,6 +166,13 @@ binder_alloc_get_free_async_space(struct binder_alloc *alloc)
 
 unsigned long
 binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc,
+				 struct binder_buffer *buffer,
+				 binder_size_t buffer_offset,
+				 const void __user *from,
+				 size_t bytes);
+
+unsigned long
+binder_alloc_copy_user_to_buffer_copier(int binder_fd,struct binder_alloc *alloc,
 				 struct binder_buffer *buffer,
 				 binder_size_t buffer_offset,
 				 const void __user *from,
