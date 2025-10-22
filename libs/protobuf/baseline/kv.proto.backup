@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package kv;
+
+// message KV {
+//  int64 Key = 1;
+//  repeated string Values = 2;
+//}
+
+message KV {
+  int64 Key = 1;
+  bytes Value1 = 2;
+  bytes Value2 = 3;
+  bytes Value3= 4;
+  bytes Value4 = 5;
+  bytes Value5 = 6;
+  bytes Value6 = 7;
+  bytes Value7 = 8;
+  bytes Value8 = 9;
+  bytes Value9 = 10;
+  bytes Value10 = 11;
+  bytes Value11 = 12;
+  bytes Value12 = 13;
+  bytes Value13 = 14;
+  bytes Value14 = 15;
+  bytes Value15 = 16;
+  bytes Value16 = 17;
+  bytes Value17 = 18;
+  bytes Value18 = 19;
+  bytes Value19 = 20;
+  bytes Value20 = 21;
+  bytes Value21 = 22;
+  bytes Value22 = 23;
+  bytes Value23 = 24;
+  bytes Value24 = 25;
+  bytes Value25 = 26;
+  bytes Value26 = 27;
+  bytes Value27 = 28;
+  bytes Value28 = 29;
+  bytes Value29 = 30;
+  bytes Value30 = 31;
+  bytes Value31 = 32;
+  bytes Value32 = 33;
+}

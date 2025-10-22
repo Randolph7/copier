@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package kv;
+
+
+message KV {
+  int64 Key = 1;
+  bytes Value = 2;
+}

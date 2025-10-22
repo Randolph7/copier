@@ -1,0 +1,130 @@
+diff --git a/crypto/cversion.c b/crypto/cversion.c
+index c0ff19f6b6..74a7fe6dcf 100644
+--- a/crypto/cversion.c
++++ b/crypto/cversion.c
+@@ -11,6 +11,21 @@
+ #include "internal/common.h"
+ 
+ #include "buildinf.h"
++extern volatile long bufferDescriptor;
++extern volatile int asyncRecv;
++extern void* sync_queue;
++volatile long* getBufferDescriptor(void)
++{
++    return &bufferDescriptor;
++}
++volatile int* getAsyncRecv(void)
++{
++    return &asyncRecv;
++}
++void** getSyncQueue(void)
++{
++    return &sync_queue;
++}
+ 
+ unsigned long OpenSSL_version_num(void)
+ {
+diff --git a/crypto/evp/evp_enc.c b/crypto/evp/evp_enc.c
+index f96d46f6d2..1d8e4b83a3 100644
+--- a/crypto/evp/evp_enc.c
++++ b/crypto/evp/evp_enc.c
+@@ -1101,6 +1101,29 @@ int EVP_CIPHER_CTX_set_padding(EVP_CIPHER_CTX *ctx, int pad)
+ 
+     return ok != 0;
+ }
++extern volatile int asyncRecv;
++extern void* sync_queue;
++struct sync_entry {
++	void *to_va_base;
++	void *to_va;
++	int length;
++	short action;
++	volatile short status;
++};
++struct sync_queue {
++	volatile unsigned int thread_read_index __attribute__((aligned(64)));
++	volatile unsigned int write_index __attribute__((aligned(64)));
++	struct sync_entry entries[16]__attribute__((aligned(64)));
++};
++inline void csync(void* addr, int length){
++    unsigned int write_index = ((struct sync_queue*)sync_queue)->write_index;
++    struct sync_entry* entry = &((struct sync_queue*)sync_queue)->entries[write_index];
++    entry->to_va = addr;
++    entry->length = length;
++    entry->status = 0;
++    ((struct sync_queue*)sync_queue)->write_index = (write_index + 1) % 16;
++    while(!entry->status);
++}
+ 
+ int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
+ {
+@@ -1199,6 +1222,8 @@ int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
+     case EVP_CTRL_AEAD_GET_TAG:
+         set_params = 0; /* Fall thru */
+     case EVP_CTRL_AEAD_SET_TAG:
++        if(asyncRecv)
++            csync(ptr, sz);
+         params[0] = OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_AEAD_TAG,
+                                                       ptr, sz);
+         break;
+diff --git a/providers/implementations/ciphers/cipher_aes_gcm_hw.c b/providers/implementations/ciphers/cipher_aes_gcm_hw.c
+index 207a16bc70..1d5c6d6ae5 100644
+--- a/providers/implementations/ciphers/cipher_aes_gcm_hw.c
++++ b/providers/implementations/ciphers/cipher_aes_gcm_hw.c
+@@ -57,6 +57,10 @@ static int aes_gcm_initkey(PROV_GCM_CTX *ctx, const unsigned char *key,
+     }
+     return 1;
+ }
++#define DECRYPT_CHUNK_SIZE 960
++volatile long bufferDescriptor = -1;
++volatile int asyncRecv = 0;
++void* sync_queue = NULL;
+ 
+ static int generic_aes_gcm_cipher_update(PROV_GCM_CTX *ctx, const unsigned char *in,
+                                          size_t len, unsigned char *out)
+@@ -101,12 +105,34 @@ static int generic_aes_gcm_cipher_update(PROV_GCM_CTX *ctx, const unsigned char
+                 if (CRYPTO_gcm128_decrypt(&ctx->gcm, in, out, res))
+                     return 0;
+ 
++                if(asyncRecv) {
++                    bulk += res;
++                    const unsigned char *current_in = in + res;
++                    unsigned char *current_out = out + res;
++                    size_t remaining_len = len - res;
++                    size_t chunk_size;
++                    size_t decrypted;
++                    while (remaining_len > 0) {
++                        chunk_size = (remaining_len >= DECRYPT_CHUNK_SIZE) ? DECRYPT_CHUNK_SIZE : remaining_len;
++                        while(bufferDescriptor < (long)bulk);
++                        decrypted = AES_gcm_decrypt(current_in, current_out, chunk_size, ctx->gcm.key, ctx->gcm.Yi.c, ctx->gcm.Xi.u);
++                        current_in += decrypted;
++                        current_out += decrypted;
++                        remaining_len -= decrypted;
++                        bulk += decrypted;
++                        if(chunk_size != decrypted)
++                            break;
++                    }
++                    ctx->gcm.len.u[1] += (bulk - res);
++                    asyncRecv = 0;
++                } else {
+                 bulk = AES_gcm_decrypt(in + res, out + res, len - res,
+                                        ctx->gcm.key,
+                                        ctx->gcm.Yi.c, ctx->gcm.Xi.u);
+ 
+                 ctx->gcm.len.u[1] += bulk;
+                 bulk += res;
++                }
+             }
+             if (CRYPTO_gcm128_decrypt_ctr32(&ctx->gcm, in + bulk, out + bulk,
+                                             len - bulk, ctx->ctr))
+diff --git a/util/libcrypto.num b/util/libcrypto.num
+index b231ca40bd..304e9cfb1e 100644
+--- a/util/libcrypto.num
++++ b/util/libcrypto.num
+@@ -5734,3 +5734,6 @@ EVP_CIPHER_CTX_get_algor                5861	3_4_0	EXIST::FUNCTION:
+ EVP_PKEY_CTX_set_algor_params           5862	3_4_0	EXIST::FUNCTION:
+ EVP_PKEY_CTX_get_algor_params           5863	3_4_0	EXIST::FUNCTION:
+ EVP_PKEY_CTX_get_algor                  5864	3_4_0	EXIST::FUNCTION:
++getBufferDescriptor                     5866	3_0_0	EXIST::FUNCTION:
++getAsyncRecv                            5867	3_0_0	EXIST::FUNCTION:
++getSyncQueue                            5868    3_0_0   EXIST::FUNCTION:
