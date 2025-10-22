@@ -130,6 +130,10 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
 				struct pipe_inode_info *pipe, size_t len,
 				unsigned int flags);
 
+// extern int sock_recvmsg_copyer(struct socket *sock,
+// 			      struct msghdr *msg, int flags);
+// static ssize_t sock_read_iter_copyer(struct kiocb *iocb, struct iov_iter *to);
+
 #ifdef CONFIG_PROC_FS
 static void sock_show_fdinfo(struct seq_file *m, struct file *f)
 {
@@ -165,6 +169,25 @@ static const struct file_operations socket_file_ops = {
 	.splice_read =	sock_splice_read,
 	.show_fdinfo =	sock_show_fdinfo,
 };
+
+// static const struct file_operations socket_file_ops_copyer = {
+// 	.owner =	THIS_MODULE,
+// 	.llseek =	no_llseek,
+// 	.read_iter =	sock_read_iter_copyer,
+// 	.write_iter =	sock_write_iter,
+// 	.poll =		sock_poll,
+// 	.unlocked_ioctl = sock_ioctl,
+// #ifdef CONFIG_COMPAT
+// 	.compat_ioctl = compat_sock_ioctl,
+// #endif
+// 	.mmap =		sock_mmap,
+// 	.release =	sock_close,
+// 	.fasync =	sock_fasync,
+// 	.sendpage =	sock_sendpage,
+// 	.splice_write = generic_splice_sendpage,
+// 	.splice_read =	sock_splice_read,
+// 	.show_fdinfo =	sock_show_fdinfo,
+// };
 
 static const char * const pf_family_names[] = {
 	[PF_UNSPEC]	= "PF_UNSPEC",
@@ -267,7 +290,7 @@ int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr_storage *k
  *	specified. Zero is returned for a success.
  */
 
-static int move_addr_to_user(struct sockaddr_storage *kaddr, int klen,
+int move_addr_to_user(struct sockaddr_storage *kaddr, int klen,
 			     void __user *uaddr, int __user *ulen)
 {
 	int err;
@@ -502,6 +525,7 @@ static int sock_map_fd(struct socket *sock, int flags)
 
 struct socket *sock_from_file(struct file *file)
 {
+	// if (file->f_op == &socket_file_ops || file->f_op == &socket_file_ops_copyer)
 	if (file->f_op == &socket_file_ops)
 		return file->private_data;	/* set in sock_map_fd */
 
@@ -542,7 +566,7 @@ struct socket *sockfd_lookup(int fd, int *err)
 }
 EXPORT_SYMBOL(sockfd_lookup);
 
-static struct socket *sockfd_lookup_light(int fd, int *err, int *fput_needed)
+struct socket *sockfd_lookup_light(int fd, int *err, int *fput_needed)
 {
 	struct fd f = fdget(fd);
 	struct socket *sock;
@@ -1039,6 +1063,28 @@ static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	*to = msg.msg_iter;
 	return res;
 }
+
+// static ssize_t sock_read_iter_copyer(struct kiocb *iocb, struct iov_iter *to)
+// {
+// 	struct file *file = iocb->ki_filp;
+// 	struct socket *sock = file->private_data;
+// 	struct msghdr msg = {.msg_iter = *to,
+// 			     .msg_iocb = iocb};
+// 	ssize_t res;
+
+// 	if (file->f_flags & O_NONBLOCK || (iocb->ki_flags & IOCB_NOWAIT))
+// 		msg.msg_flags = MSG_DONTWAIT;
+
+// 	if (iocb->ki_pos != 0)
+// 		return -ESPIPE;
+
+// 	if (!iov_iter_count(to))	/* Match SYS5 behaviour */
+// 		return 0;
+
+// 	res = sock_recvmsg_copyer(sock, &msg, msg.msg_flags);
+// 	*to = msg.msg_iter;
+// 	return res;
+// }
 
 static ssize_t sock_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
@@ -1569,6 +1615,15 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
 	return __sys_socket(family, type, protocol);
 }
 
+SYSCALL_DEFINE3(socket_copyer, int, family, int, type, int, protocol)
+{
+	// int fd = __sys_socket(family, type, protocol);
+	// struct file *newfile = fget(fd);
+	// newfile->f_op = &socket_file_ops_copyer;
+	// return fd;
+	return 0;
+}
+
 /*
  *	Create a pair of connected sockets.
  */
@@ -1768,6 +1823,9 @@ struct file *do_accept(struct file *file, unsigned file_flags,
 	newfile = sock_alloc_file(newsock, flags, sock->sk->sk_prot_creator->name);
 	if (IS_ERR(newfile))
 		return newfile;
+	// add by copyer
+	// newfile->f_op = file->f_op;
+	// finish add by copyer
 
 	err = security_socket_accept(sock, newsock);
 	if (err)

@@ -3579,7 +3579,7 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(netif_skb_features);
 
-static int xmit_one(struct sk_buff *skb, struct net_device *dev,
+int xmit_one(struct sk_buff *skb, struct net_device *dev,
 		    struct netdev_queue *txq, bool more)
 {
 	unsigned int len;
@@ -3656,7 +3656,7 @@ int skb_csum_hwoffload_help(struct sk_buff *skb,
 }
 EXPORT_SYMBOL(skb_csum_hwoffload_help);
 
-static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev, bool *again)
+struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device *dev, bool *again)
 {
 	netdev_features_t features;
 
@@ -3739,7 +3739,7 @@ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *d
 }
 EXPORT_SYMBOL_GPL(validate_xmit_skb_list);
 
-static void qdisc_pkt_len_init(struct sk_buff *skb)
+void qdisc_pkt_len_init(struct sk_buff *skb)
 {
 	const struct skb_shared_info *shinfo = skb_shinfo(skb);
 
@@ -3780,7 +3780,7 @@ static void qdisc_pkt_len_init(struct sk_buff *skb)
 	}
 }
 
-static int dev_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *q,
+int dev_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *q,
 			     struct sk_buff **to_free,
 			     struct netdev_queue *txq)
 {
@@ -3792,7 +3792,7 @@ static int dev_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *q,
 	return rc;
 }
 
-static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
 				 struct net_device *dev,
 				 struct netdev_queue *txq)
 {
@@ -3889,7 +3889,7 @@ no_lock_out:
 }
 
 #if IS_ENABLED(CONFIG_CGROUP_NET_PRIO)
-static void skb_update_prio(struct sk_buff *skb)
+void skb_update_prio(struct sk_buff *skb)
 {
 	const struct netprio_map *map;
 	const struct sock *sk;
