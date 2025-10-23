@@ -2,7 +2,7 @@
 
 This is the artifact of Copier --- a system service that provides asynchronous copying to optimize memory copying across the entire system.
 
-> We have open-sourced the source code required to reproduce all the data in the paper. We are currently working in progress to organize the tool chain and integrate the kernel modifications into an easy-to-install kernel module. Stay tuned!
+> We have open-sourced the source code required to reproduce all the data in the paper. We are currently working in progress to organize the tool chain and integrate the kernel modifications into an easy-to-install kernel module.
 
 
 
