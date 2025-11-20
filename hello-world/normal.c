@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <x86intrin.h>
-#include "../config.h"
+#include "def.h"
 
 void *____memcpy(void *dest, const void *src, size_t n)
 {

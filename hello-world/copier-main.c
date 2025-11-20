@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <time.h>
 #include "copier.h"
-#include "../config.h"
 #include <x86intrin.h>
 
 // extern unsigned long submit_cycles;
