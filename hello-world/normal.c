@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
 		____memcpy(to, from, arrayLength);
+		// memcpy(to, from, arrayLength);
 
 		for (int i = 0; i < size; i += 16) {
 			if (to[i] > max)
@@ -110,6 +111,7 @@ int main(int argc, char *argv[])
 		clock_gettime(CLOCK_MONOTONIC, &start);
 
 		____memcpy(to, from, arrayLength);
+		// memcpy(to, from, arrayLength);
 
 		for (int i = 0; i < size; i += 16) {
 			if (to[i] > max)

@@ -1,0 +1,13 @@
+Mode       : memcpy
+Size       : 10.00 GiB (10737418240 bytes)
+Rounds     : 5
+Granularity: 4096 bytes
+Run   1 : 1389794571 ns (1.390 s, 7.195 GiB/s)
+Run   2 : 1386898629 ns (1.387 s, 7.210 GiB/s)
+Run   3 : 1388512969 ns (1.389 s, 7.202 GiB/s)
+Run   4 : 1387405762 ns (1.387 s, 7.208 GiB/s)
+Run   5 : 1388025086 ns (1.388 s, 7.204 GiB/s)
+Average   : 1388.13 ms
+Min / Max : 1386.90 ms / 1389.79 ms
+Throughput: 7.20 GiB/s
+{"mode":"memcpy","size_bytes":10737418240,"rounds":5,"granularity_bytes":4096,"avg_ns":1388127403.40,"min_ns":1386898629.00,"max_ns":1389794571.00,"throughput_gib_s":7.2039}

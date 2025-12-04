@@ -1,0 +1,13 @@
+Mode       : async
+Size       : 10.00 GiB (10737418240 bytes)
+Rounds     : 5
+Granularity: 4096 bytes
+Run   1 : 2366487957 ns (2.366 s, 4.226 GiB/s)
+Run   2 : 2372277753 ns (2.372 s, 4.215 GiB/s)
+Run   3 : 2371383379 ns (2.371 s, 4.217 GiB/s)
+Run   4 : 2371464197 ns (2.371 s, 4.217 GiB/s)
+Run   5 : 2373010514 ns (2.373 s, 4.214 GiB/s)
+Average   : 2370.92 ms
+Min / Max : 2366.49 ms / 2373.01 ms
+Throughput: 4.22 GiB/s
+{"mode":"async","size_bytes":10737418240,"rounds":5,"granularity_bytes":4096,"avg_ns":2370924760.00,"min_ns":2366487957.00,"max_ns":2373010514.00,"throughput_gib_s":4.2178}
